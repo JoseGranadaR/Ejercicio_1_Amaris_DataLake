@@ -1,0 +1,11 @@
+tipo_identificacion,identificacion,nombre,ciudad,segmento,fecha_vinculacion,consumo_promedio_kwh
+CC,1023456789,María Fernanda López,Bogotá,residencial,2020-01-15,350
+NIT,900123456-1,Industrias Metálicas S.A.,Medellín,industrial,2018-06-20,45000
+CC,987654321,Carlos Andrés Ruiz,Cali,residencial,2021-03-10,280
+NIT,800987654-2,Supermercados El Ahorro,Barranquilla,comercial,2019-11-05,8500
+CE,456789123,Jean Pierre Dupont,Bogotá,residencial,2022-07-22,410
+NIT,901234567-3,Textiles Modernos Ltda.,Pereira,industrial,2017-09-15,62000
+CC,654321987,Luisa Valentina Torres,Manizales,residencial,2023-01-08,190
+NIT,800456789-4,Hotel Grand Palace,Cartagena,comercial,2020-04-30,15000
+CC,321654987,Andrés Felipe Mora,Bucaramanga,residencial,2021-08-19,320
+NIT,900654321-5,Plásticos del Caribe,Santa Marta,industrial,2016-12-10,38000

@@ -1,0 +1,18 @@
+# ══════════════════════════════════════════════════════════════
+# requirements-lambda.txt
+# Dependencias para el Lambda Layer que se sube a AWS.
+#
+# IMPORTANTE: boto3 NO está aquí porque AWS Lambda ya lo incluye
+# en su runtime. Incluirlo duplica el tamaño del layer.
+#
+# Este archivo lo usa el Makefile al ejecutar:
+#   make layer
+#
+# El comando descarga estas librerías compiladas para Linux x86_64
+# (la arquitectura de Lambda en AWS), independientemente de si
+# usted está en Mac, Windows o Linux.
+# ══════════════════════════════════════════════════════════════
+
+# Requerido por ingestion_handler.py para leer archivos .env
+# (solo si se usa en modo local, en Lambda no es necesario)
+python-dotenv==1.0.1

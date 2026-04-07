@@ -1,0 +1,238 @@
+# .github/workflows/deploy.yml
+# ══════════════════════════════════════════════════════════════
+# Pipeline CI/CD — Data Lake Amaris Energía
+#
+# Flujo:
+#   PR abierto:      lint + tests + terraform plan
+#   Merge a main:    lint + tests + terraform apply + upload datos
+#
+# Requisitos en GitHub → Settings → Secrets and variables → Actions:
+#   AWS_ROLE_ARN        ARN del rol IAM con permisos de despliegue
+#   AWS_REGION          Región AWS (ej: us-east-1)
+#   TF_VAR_alert_email  Email para alertas de CloudWatch
+#
+# Autenticación: usa OIDC (sin credenciales de larga duración en Secrets)
+# ══════════════════════════════════════════════════════════════
+
+name: Deploy Data Lake
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION:      ${{ secrets.AWS_REGION }}
+  TF_VERSION:      "1.7.0"
+  PYTHON_VERSION:  "3.12"
+  WORKING_DIR:     terraform
+
+permissions:
+  id-token:       write   # Requerido para OIDC con AWS
+  contents:       read
+  pull-requests:  write   # Para comentar el plan en PRs
+
+# ── Job 1: Lint y Tests unitarios ─────────────────────────────
+jobs:
+  test:
+    name: "Lint + Tests"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Instalar dependencias
+        run: pip install -r requirements-dev.txt
+
+      - name: "Lint: flake8"
+        run: |
+          flake8 scripts/ glue_jobs/ lambda/ tests/
+          # La configuración está en .flake8 en la raíz del proyecto.
+          # Ignora errores de alineación (E221, E128, etc.) que son
+          # preferencias de estilo, no bugs. Solo falla en errores reales.
+
+      - name: "Lint: black (verificar formato)"
+        run: |
+          black scripts/ glue_jobs/ lambda/ tests/ \
+            --check --line-length=100
+
+      - name: "Tests unitarios"
+        run: |
+          pytest tests/ \
+            --ignore=tests/test_deploy_data.py \
+            -v \
+            --cov=scripts \
+            --cov-report=term-missing \
+            --cov-fail-under=60
+
+      - name: "Tests con moto (simulación AWS)"
+        run: |
+          pytest tests/test_deploy_data.py -v
+
+  # ── Job 2: Validar Terraform ─────────────────────────────────
+  terraform-validate:
+    name: "Terraform Validate"
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Instalar Terraform ${{ env.TF_VERSION }}
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: "terraform fmt (verificar formato)"
+        run: terraform fmt -check -recursive
+        working-directory: terraform
+
+      - name: "terraform validate"
+        run: |
+          terraform init -backend=false
+          terraform validate
+        working-directory: terraform
+
+  # ── Job 3: Plan (solo en PRs) ────────────────────────────────
+  terraform-plan:
+    name: "Terraform Plan"
+    runs-on: ubuntu-latest
+    needs: [test, terraform-validate]
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Autenticación en AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region:     ${{ env.AWS_REGION }}
+
+      - name: Instalar Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: terraform init
+        run: terraform init -input=false
+        working-directory: terraform
+
+      - name: terraform plan
+        id: plan
+        run: |
+          terraform plan \
+            -var-file=environments/dev/terraform.tfvars \
+            -var="alert_email=${{ secrets.TF_VAR_alert_email }}" \
+            -input=false \
+            -no-color \
+            -out=tfplan 2>&1 | tee plan_output.txt
+        working-directory: terraform
+
+      - name: Publicar plan en el PR
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('terraform/plan_output.txt', 'utf8');
+            const truncated = plan.length > 60000 ? plan.slice(0, 60000) + '\n\n... (truncado)' : plan;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Terraform Plan\n\`\`\`\n${truncated}\n\`\`\``
+            });
+
+  # ── Job 4: Apply (solo en merge a main) ─────────────────────
+  terraform-apply:
+    name: "Terraform Apply"
+    runs-on: ubuntu-latest
+    needs: [test, terraform-validate]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Autenticación en AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region:     ${{ env.AWS_REGION }}
+
+      - name: Instalar Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Empaquetar Lambda
+        run: |
+          cd lambda
+          zip -r ../terraform/lambda_ingestion.zip ingestion_handler.py
+          echo "Lambda empaquetada: $(du -sh ../terraform/lambda_ingestion.zip | cut -f1)"
+
+      - name: terraform init
+        run: terraform init -input=false
+        working-directory: terraform
+
+      - name: terraform apply
+        run: |
+          terraform apply \
+            -var-file=environments/dev/terraform.tfvars \
+            -var="alert_email=${{ secrets.TF_VAR_alert_email }}" \
+            -input=false \
+            -auto-approve
+        working-directory: terraform
+
+      - name: Subir scripts de Glue a S3
+        run: |
+          BUCKET=$(terraform -chdir=terraform output -raw scripts_bucket 2>/dev/null || echo "")
+          if [ -n "$BUCKET" ]; then
+            aws s3 cp glue_jobs/etl_energia_transform.py   s3://$BUCKET/jobs/
+            aws s3 cp glue_jobs/redshift_pipeline.py       s3://$BUCKET/jobs/
+            aws s3 cp glue_jobs/catalog_crawler_trigger.py s3://$BUCKET/jobs/
+            echo "✅ Scripts Glue subidos a s3://$BUCKET/jobs/"
+          fi
+
+      - name: Subir datos de muestra
+        run: |
+          LANDING=$(terraform -chdir=terraform output -raw landing_bucket 2>/dev/null || echo "")
+          if [ -n "$LANDING" ]; then
+            PARTITION="year=2024/month=01/day=15/hour=00"
+            for DATASET in proveedores clientes transacciones; do
+              aws s3 cp data/sample/$DATASET.csv \
+                s3://$LANDING/raw/$DATASET/$PARTITION/$DATASET.csv
+              echo "  Subido: $DATASET.csv"
+            done
+          fi
+
+  # ── Job 5: Notificación final ─────────────────────────────────
+  notify:
+    name: "Notificación"
+    runs-on: ubuntu-latest
+    needs: terraform-apply
+    if: always() && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Resumen del despliegue
+        run: |
+          echo "## ✅ Data Lake desplegado"                >> $GITHUB_STEP_SUMMARY
+          echo "| Elemento | Valor |"                      >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|"                       >> $GITHUB_STEP_SUMMARY
+          echo "| Rama | main |"                           >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | ${{ github.sha }} |"            >> $GITHUB_STEP_SUMMARY
+          echo "| Autor | ${{ github.actor }} |"           >> $GITHUB_STEP_SUMMARY
+          echo "| Fecha | $(date -u '+%Y-%m-%d %H:%M UTC') |" >> $GITHUB_STEP_SUMMARY

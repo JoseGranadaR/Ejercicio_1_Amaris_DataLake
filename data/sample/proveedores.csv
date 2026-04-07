@@ -1,0 +1,11 @@
+nombre_proveedor,tipo_energia,pais_origen,capacidad_mw,fecha_registro,activo
+EnerSol Caribe,eolica,Colombia,350,2021-03-15,true
+HidroAndes S.A.,hidroelectrica,Colombia,1200,2019-07-22,true
+NuclearPower Co.,nuclear,Francia,2000,2020-01-10,true
+VientoNorte Ltda.,eolica,Colombia,180,2022-05-30,true
+AguaViva Corp.,hidroelectrica,Ecuador,800,2020-11-05,true
+AtomEnergy Inc.,nuclear,Alemania,3000,2018-09-14,true
+BrisaMar S.A.S.,eolica,Colombia,220,2023-02-18,true
+RioFuerte Gen.,hidroelectrica,Colombia,950,2019-04-25,true
+SolarPeak Ltd.,eolica,España,410,2021-08-09,false
+HidroSur Corp.,hidroelectrica,Colombia,650,2022-12-01,true

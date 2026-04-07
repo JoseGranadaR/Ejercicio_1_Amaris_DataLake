@@ -1,0 +1,16 @@
+id_transaccion,tipo_transaccion,nombre_cliente_proveedor,cantidad_kwh,precio_cop_kwh,tipo_energia,fecha_transaccion,estado,mercado
+TRX-2024-0001,compra,EnerSol Caribe,500000,285.50,eolica,2024-01-05,completada,mayorista
+TRX-2024-0002,venta,María Fernanda López,350,410.00,eolica,2024-01-05,completada,minorista
+TRX-2024-0003,compra,HidroAndes S.A.,1200000,260.00,hidroelectrica,2024-01-06,completada,mayorista
+TRX-2024-0004,venta,Industrias Metálicas S.A.,45000,395.00,hidroelectrica,2024-01-06,completada,minorista
+TRX-2024-0005,compra,NuclearPower Co.,800000,210.50,nuclear,2024-01-07,completada,mayorista
+TRX-2024-0006,venta,Supermercados El Ahorro,8500,420.00,nuclear,2024-01-07,completada,minorista
+TRX-2024-0007,compra,VientoNorte Ltda.,320000,278.00,eolica,2024-01-08,completada,mayorista
+TRX-2024-0008,venta,Carlos Andrés Ruiz,280,415.00,eolica,2024-01-08,completada,minorista
+TRX-2024-0009,compra,AguaViva Corp.,600000,255.00,hidroelectrica,2024-01-09,completada,mayorista
+TRX-2024-0010,venta,Textiles Modernos Ltda.,62000,388.00,hidroelectrica,2024-01-09,completada,minorista
+TRX-2024-0011,compra,AtomEnergy Inc.,1500000,205.00,nuclear,2024-01-10,pendiente,mayorista
+TRX-2024-0012,venta,Hotel Grand Palace,15000,430.00,nuclear,2024-01-10,completada,minorista
+TRX-2024-0013,compra,BrisaMar S.A.S.,180000,290.00,eolica,2024-01-11,completada,mayorista
+TRX-2024-0014,venta,Jean Pierre Dupont,410,408.00,eolica,2024-01-11,completada,minorista
+TRX-2024-0015,compra,RioFuerte Gen.,750000,262.00,hidroelectrica,2024-01-12,completada,mayorista

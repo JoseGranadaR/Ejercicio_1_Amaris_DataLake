@@ -1,0 +1,34 @@
+# ══════════════════════════════════════════════════════════════
+# requirements.txt
+# Dependencias para ejecutar los scripts locales del proyecto:
+#   - scripts/athena_queries.py   (consultas SQL)
+#   - scripts/deploy_data.py      (subir datos a S3)
+#   - glue_jobs/catalog_crawler_trigger.py
+#
+# Instalación:
+#   pip install -r requirements.txt
+#
+# Python requerido: >= 3.10
+# ══════════════════════════════════════════════════════════════
+
+# AWS SDK — comunicación con todos los servicios de Amazon
+boto3>=1.34.69
+
+# Manipulación de datos — wheel precompilado disponible en Windows/Mac/Linux
+# NOTA: usar >= en lugar de == para que pip elija el wheel compilado disponible
+pandas>=2.2.2
+
+# Formato columnar Parquet
+pyarrow>=15.0.2
+
+# Lectura de archivos .env para configuración local
+python-dotenv>=1.0.1
+
+# Barra de progreso para uploads y jobs largos
+tqdm>=4.66.2
+
+# Colores en terminal para mensajes de estado
+colorama>=0.4.6
+
+# Validación de esquemas de datos (opcional, para tests)
+pydantic>=2.6.4

@@ -1,0 +1,34 @@
+[flake8]
+# Longitud máxima de línea
+max-line-length = 110
+
+# Excluir carpetas que no son código del proyecto
+exclude =
+    .venv,
+    .git,
+    __pycache__,
+    .terraform,
+    *.egg-info
+
+# Ignorar errores de estilo de alineación vertical.
+# E221/E128/E272/E251/E124/E225/E231 son preferencias de formato,
+# no bugs. El código funciona correctamente con o sin ellos.
+# F403 se ignora en glue_jobs porque el import * es requerido
+# por el framework de AWS Glue (no es código nuestro).
+extend-ignore =
+    E221,
+    E128,
+    E272,
+    E251,
+    E124,
+    E225,
+    E231,
+    E128,
+    W503,
+    W504,
+    F403
+
+# Archivos donde se permiten imports * (requerido por AWS Glue)
+per-file-ignores =
+    glue_jobs/etl_energia_transform.py: F401, F403
+    glue_jobs/redshift_pipeline.py: F401
