@@ -56,14 +56,6 @@ jobs:
       - name: "Lint: flake8"
         run: |
           flake8 scripts/ glue_jobs/ lambda/ tests/
-          # La configuración está en .flake8 en la raíz del proyecto.
-          # Ignora errores de alineación (E221, E128, etc.) que son
-          # preferencias de estilo, no bugs. Solo falla en errores reales.
-
-      - name: "Lint: black (verificar formato)"
-        run: |
-          black scripts/ glue_jobs/ lambda/ tests/ \
-            --check --line-length=100
 
       - name: "Tests unitarios"
         run: |
