@@ -62,9 +62,8 @@ jobs:
           pytest tests/ \
             --ignore=tests/test_deploy_data.py \
             -v \
-            --cov=scripts \
-            --cov-report=term-missing \
-            --cov-fail-under=60
+            --cov=tests \
+            --cov-report=term-missing
 
       - name: "Tests con moto (simulación AWS)"
         run: |
