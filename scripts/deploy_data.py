@@ -167,7 +167,11 @@ def main():
         resultados["ok" if success else "error"] += 1
 
     log.info("")
-    log.info(f"Resultado: {resultados['ok']} subidos, {resultados['error']} errores, {resultados['omitido']} omitidos")
+    log.info(
+        f"Resultado: {resultados['ok']} subidos, "
+        f"{resultados['error']} errores, "
+        f"{resultados['omitido']} omitidos"
+    )
 
     if resultados["error"] > 0:
         sys.exit(1)

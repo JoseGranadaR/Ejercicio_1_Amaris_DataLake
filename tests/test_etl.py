@@ -104,13 +104,19 @@ INVALIDO,000000,Nadie,Ninguna,ninguna,2023-01-01,0"""
 
 @pytest.fixture
 def df_transacciones_raw():
-    csv = """id_transaccion,tipo_transaccion,nombre_cliente_proveedor,cantidad_kwh,precio_cop_kwh,tipo_energia,fecha_transaccion,estado,mercado
-TRX-001,compra,EnerSol Caribe,500000,285.50,eolica,2024-01-05,completada,mayorista
-TRX-002,venta,María López,350,410.00,eolica,2024-01-05,completada,minorista
-TRX-003,compra,HidroAndes S.A.,1200000,260.00,hidroelectrica,2024-01-06,completada,mayorista
-TRX-004,venta,Industrias S.A.,45000,395.00,hidroelectrica,2024-01-06,completada,minorista
-TRX-005,COMPRA, NuclearPower,800000,210.50,nuclear,2024-01-07,pendiente,mayorista
-TRX-001,compra,EnerSol Caribe,500000,285.50,eolica,2024-01-05,completada,mayorista"""
+    header = (
+        "id_transaccion,tipo_transaccion,nombre_cliente_proveedor,"
+        "cantidad_kwh,precio_cop_kwh,tipo_energia,fecha_transaccion,estado,mercado"
+    )
+    rows = "\n".join([
+        "TRX-001,compra,EnerSol Caribe,500000,285.50,eolica,2024-01-05,completada,mayorista",
+        "TRX-002,venta,María López,350,410.00,eolica,2024-01-05,completada,minorista",
+        "TRX-003,compra,HidroAndes S.A.,1200000,260.00,hidroelectrica,2024-01-06,completada,mayorista",
+        "TRX-004,venta,Industrias S.A.,45000,395.00,hidroelectrica,2024-01-06,completada,minorista",
+        "TRX-005,COMPRA, NuclearPower,800000,210.50,nuclear,2024-01-07,pendiente,mayorista",
+        "TRX-001,compra,EnerSol Caribe,500000,285.50,eolica,2024-01-05,completada,mayorista",
+    ])
+    csv = header + "\n" + rows
     return pd.read_csv(StringIO(csv))
 
 
