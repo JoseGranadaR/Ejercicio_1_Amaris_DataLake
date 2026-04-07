@@ -7,4 +7,7 @@ output "glue_db_processed" { value = aws_glue_catalog_database.processed.name }
 output "athena_workgroup"  { value = aws_athena_workgroup.main.name }
 output "glue_workflow"     { value = aws_glue_workflow.etl_pipeline.name }
 output "redshift_endpoint" { value = aws_redshift_cluster.dw.endpoint }
-output "kms_key_arn"       { value = aws_kms_key.datalake.arn; sensitive = true }
+output "kms_key_arn" {
+  value     = aws_kms_key.datalake.arn
+  sensitive = true
+}

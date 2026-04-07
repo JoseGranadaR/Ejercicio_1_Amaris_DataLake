@@ -59,7 +59,9 @@ resource "aws_s3_bucket" "datalake" {
 resource "aws_s3_bucket_versioning" "datalake" {
   for_each = { for k, v in local.buckets : k => v if k != "athena" && k != "logs" }
   bucket   = aws_s3_bucket.datalake[each.key].id
-  versioning_configuration { status = "Enabled" }
+  versioning_configuration {
+    status = "Enabled"
+  }
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "datalake" {
@@ -86,25 +88,37 @@ resource "aws_s3_bucket_public_access_block" "datalake" {
 resource "aws_s3_bucket_lifecycle_configuration" "landing" {
   bucket = aws_s3_bucket.datalake["landing"].id
   rule {
-    id = "archive-old"; status = "Enabled"
+    id     = "archive-old"
+    status = "Enabled"
     filter { prefix = "" }
-    transition { days = 90;  storage_class = "GLACIER" }
+    transition {
+      days          = 90
+      storage_class = "GLACIER"
+    }
     expiration { days = 365 }
   }
 }
 resource "aws_s3_bucket_lifecycle_configuration" "raw" {
   bucket = aws_s3_bucket.datalake["raw"].id
   rule {
-    id = "tiered-storage"; status = "Enabled"
+    id     = "tiered-storage"
+    status = "Enabled"
     filter { prefix = "" }
-    transition { days = 90;  storage_class = "STANDARD_IA" }
-    transition { days = 180; storage_class = "GLACIER" }
+    transition {
+      days          = 90
+      storage_class = "STANDARD_IA"
+    }
+    transition {
+      days          = 180
+      storage_class = "GLACIER"
+    }
   }
 }
 resource "aws_s3_bucket_lifecycle_configuration" "athena" {
   bucket = aws_s3_bucket.datalake["athena"].id
   rule {
-    id = "clean-results"; status = "Enabled"
+    id     = "clean-results"
+    status = "Enabled"
     filter { prefix = "" }
     expiration { days = 7 }
   }
@@ -263,7 +277,10 @@ resource "aws_glue_crawler" "raw" {
   role          = aws_iam_role.glue.arn
   schedule      = "cron(0 1 * * ? *)"
   s3_target { path = "s3://${aws_s3_bucket.datalake["raw"].bucket}/" }
-  schema_change_policy { update_behavior = "UPDATE_IN_DATABASE"; delete_behavior = "LOG" }
+  schema_change_policy {
+    update_behavior = "UPDATE_IN_DATABASE"
+    delete_behavior = "LOG"
+  }
 }
 resource "aws_glue_crawler" "processed" {
   database_name = aws_glue_catalog_database.processed.name
@@ -271,13 +288,18 @@ resource "aws_glue_crawler" "processed" {
   role          = aws_iam_role.glue.arn
   schedule      = "cron(30 1 * * ? *)"
   s3_target { path = "s3://${aws_s3_bucket.datalake["processed"].bucket}/" }
-  schema_change_policy { update_behavior = "UPDATE_IN_DATABASE"; delete_behavior = "LOG" }
+  schema_change_policy {
+    update_behavior = "UPDATE_IN_DATABASE"
+    delete_behavior = "LOG"
+  }
 }
 
 resource "aws_glue_job" "transform_proveedores" {
   name = "${var.project_name}-${var.environment}-transform-proveedores"
-  role_arn = aws_iam_role.glue.arn; glue_version = "4.0"
-  worker_type = "G.1X"; number_of_workers = 2
+  role_arn         = aws_iam_role.glue.arn
+  glue_version     = "4.0"
+  worker_type       = "G.1X"
+  number_of_workers = 2
   default_arguments = {
     "--TempDir"          = "s3://${aws_s3_bucket.datalake["scripts"].bucket}/temp/"
     "--RAW_BUCKET"       = aws_s3_bucket.datalake["raw"].bucket
@@ -287,13 +309,18 @@ resource "aws_glue_job" "transform_proveedores" {
     "--enable-metrics"   = "true"
     "--enable-continuous-cloudwatch-log" = "true"
   }
-  command { name = "glueetl"; python_version = "3"
-    script_location = "s3://${aws_s3_bucket.datalake["scripts"].bucket}/glue_jobs/transform_proveedores.py" }
+  command {
+    name            = "glueetl"
+    python_version  = "3"
+    script_location = "s3://${aws_s3_bucket.datalake[\"scripts\"].bucket}/glue_jobs/transform_proveedores.py"
+  }
 }
 resource "aws_glue_job" "transform_clientes" {
   name = "${var.project_name}-${var.environment}-transform-clientes"
-  role_arn = aws_iam_role.glue.arn; glue_version = "4.0"
-  worker_type = "G.1X"; number_of_workers = 2
+  role_arn         = aws_iam_role.glue.arn
+  glue_version     = "4.0"
+  worker_type       = "G.1X"
+  number_of_workers = 2
   default_arguments = {
     "--TempDir"          = "s3://${aws_s3_bucket.datalake["scripts"].bucket}/temp/"
     "--RAW_BUCKET"       = aws_s3_bucket.datalake["raw"].bucket
@@ -301,13 +328,18 @@ resource "aws_glue_job" "transform_clientes" {
     "--GLUE_DATABASE"    = aws_glue_catalog_database.processed.name
     "--TABLE_NAME"       = "clientes"
   }
-  command { name = "glueetl"; python_version = "3"
-    script_location = "s3://${aws_s3_bucket.datalake["scripts"].bucket}/glue_jobs/transform_clientes.py" }
+  command {
+    name            = "glueetl"
+    python_version  = "3"
+    script_location = "s3://${aws_s3_bucket.datalake[\"scripts\"].bucket}/glue_jobs/transform_clientes.py"
+  }
 }
 resource "aws_glue_job" "transform_transacciones" {
   name = "${var.project_name}-${var.environment}-transform-transacciones"
-  role_arn = aws_iam_role.glue.arn; glue_version = "4.0"
-  worker_type = "G.1X"; number_of_workers = 2
+  role_arn         = aws_iam_role.glue.arn
+  glue_version     = "4.0"
+  worker_type       = "G.1X"
+  number_of_workers = 2
   default_arguments = {
     "--TempDir"          = "s3://${aws_s3_bucket.datalake["scripts"].bucket}/temp/"
     "--RAW_BUCKET"       = aws_s3_bucket.datalake["raw"].bucket
@@ -315,8 +347,11 @@ resource "aws_glue_job" "transform_transacciones" {
     "--GLUE_DATABASE"    = aws_glue_catalog_database.processed.name
     "--TABLE_NAME"       = "transacciones"
   }
-  command { name = "glueetl"; python_version = "3"
-    script_location = "s3://${aws_s3_bucket.datalake["scripts"].bucket}/glue_jobs/transform_transacciones.py" }
+  command {
+    name            = "glueetl"
+    python_version  = "3"
+    script_location = "s3://${aws_s3_bucket.datalake[\"scripts\"].bucket}/glue_jobs/transform_transacciones.py"
+  }
 }
 
 # Glue Workflow
@@ -326,7 +361,8 @@ resource "aws_glue_workflow" "etl_pipeline" {
 }
 resource "aws_glue_trigger" "start_etl" {
   name = "${var.project_name}-${var.environment}-trigger-start"
-  type = "SCHEDULED"; schedule = "cron(0 2 * * ? *)"
+  type          = "SCHEDULED"
+  schedule      = "cron(0 2 * * ? *)"
   workflow_name = aws_glue_workflow.etl_pipeline.name
   actions { job_name = aws_glue_job.transform_proveedores.name }
   actions { job_name = aws_glue_job.transform_clientes.name }
@@ -338,9 +374,21 @@ resource "aws_glue_trigger" "post_etl_crawler" {
   workflow_name = aws_glue_workflow.etl_pipeline.name
   predicate {
     logical = "AND"
-    conditions { job_name = aws_glue_job.transform_proveedores.name;  logical_operator = "EQUALS"; state = "SUCCEEDED" }
-    conditions { job_name = aws_glue_job.transform_clientes.name;     logical_operator = "EQUALS"; state = "SUCCEEDED" }
-    conditions { job_name = aws_glue_job.transform_transacciones.name; logical_operator = "EQUALS"; state = "SUCCEEDED" }
+    conditions {
+      job_name         = aws_glue_job.transform_proveedores.name
+      logical_operator = "EQUALS"
+      state            = "SUCCEEDED"
+    }
+    conditions {
+      job_name         = aws_glue_job.transform_clientes.name
+      logical_operator = "EQUALS"
+      state            = "SUCCEEDED"
+    }
+    conditions {
+      job_name         = aws_glue_job.transform_transacciones.name
+      logical_operator = "EQUALS"
+      state            = "SUCCEEDED"
+    }
   }
   actions { crawler_name = aws_glue_crawler.processed.name }
 }
@@ -459,18 +507,24 @@ resource "aws_sns_topic_subscription" "email" {
 resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   alarm_name          = "${var.project_name}-${var.environment}-lambda-errors"
   comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 1; metric_name = "Errors"
-  namespace           = "AWS/Lambda"; period = 300
-  statistic           = "Sum"; threshold = 5
+  evaluation_periods  = 1
+  metric_name         = "Errors"
+  namespace           = "AWS/Lambda"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 5
   alarm_actions       = [aws_sns_topic.alerts.arn]
   dimensions          = { FunctionName = aws_lambda_function.csv_ingestion.function_name }
 }
 resource "aws_cloudwatch_metric_alarm" "dlq_messages" {
   alarm_name          = "${var.project_name}-${var.environment}-dlq-depth"
   comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 1; metric_name = "ApproximateNumberOfMessagesVisible"
-  namespace           = "AWS/SQS"; period = 60
-  statistic           = "Sum"; threshold = 0
+  evaluation_periods  = 1
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  namespace           = "AWS/SQS"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = 0
   alarm_actions       = [aws_sns_topic.alerts.arn]
   dimensions          = { QueueName = aws_sqs_queue.dlq.name }
 }
