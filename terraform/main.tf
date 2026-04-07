@@ -312,7 +312,7 @@ resource "aws_glue_job" "transform_proveedores" {
   command {
     name            = "glueetl"
     python_version  = "3"
-    script_location = "s3://${aws_s3_bucket.datalake[\"scripts\"].bucket}/glue_jobs/transform_proveedores.py"
+    script_location = "s3://${aws_s3_bucket.datalake["scripts"].bucket}/glue_jobs/transform_proveedores.py"
   }
 }
 resource "aws_glue_job" "transform_clientes" {
@@ -331,7 +331,7 @@ resource "aws_glue_job" "transform_clientes" {
   command {
     name            = "glueetl"
     python_version  = "3"
-    script_location = "s3://${aws_s3_bucket.datalake[\"scripts\"].bucket}/glue_jobs/transform_clientes.py"
+    script_location = "s3://${aws_s3_bucket.datalake["scripts"].bucket}/glue_jobs/transform_clientes.py"
   }
 }
 resource "aws_glue_job" "transform_transacciones" {
@@ -350,7 +350,7 @@ resource "aws_glue_job" "transform_transacciones" {
   command {
     name            = "glueetl"
     python_version  = "3"
-    script_location = "s3://${aws_s3_bucket.datalake[\"scripts\"].bucket}/glue_jobs/transform_transacciones.py"
+    script_location = "s3://${aws_s3_bucket.datalake["scripts"].bucket}/glue_jobs/transform_transacciones.py"
   }
 }
 
