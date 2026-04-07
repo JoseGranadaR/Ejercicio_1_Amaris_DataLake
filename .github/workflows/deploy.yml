@@ -2,16 +2,18 @@
 # ══════════════════════════════════════════════════════════════
 # Pipeline CI/CD — Data Lake Amaris Energía
 #
-# Flujo:
-#   PR abierto:      lint + tests + terraform plan
-#   Merge a main:    lint + tests + terraform apply + upload datos
+# Jobs que siempre corren (sin necesidad de cuenta AWS):
+#   1. Lint + Tests     → flake8 + 37 tests unitarios con moto
+#   2. Terraform Validate → fmt + validate sintaxis HCL
 #
-# Requisitos en GitHub → Settings → Secrets and variables → Actions:
-#   AWS_ROLE_ARN        ARN del rol IAM con permisos de despliegue
-#   AWS_REGION          Región AWS (ej: us-east-1)
-#   TF_VAR_alert_email  Email para alertas de CloudWatch
+# Jobs que requieren configurar Secrets en GitHub (opcionales):
+#   3. Terraform Plan   → solo en Pull Requests (requiere AWS_ROLE_ARN)
+#   4. Terraform Apply  → solo en merge a main  (requiere AWS_ROLE_ARN)
 #
-# Autenticación: usa OIDC (sin credenciales de larga duración en Secrets)
+# Para habilitar el despliegue real, configurar en:
+# GitHub → Settings → Secrets and variables → Actions:
+#   AWS_ROLE_ARN   → ARN del rol IAM con permisos de despliegue (OIDC)
+#   ALERT_EMAIL    → Email para alertas de CloudWatch
 # ══════════════════════════════════════════════════════════════
 
 name: Deploy Data Lake
@@ -23,17 +25,16 @@ on:
     branches: [main]
 
 env:
-  AWS_REGION:      ${{ secrets.AWS_REGION }}
-  TF_VERSION:      "1.7.0"
-  PYTHON_VERSION:  "3.12"
-  WORKING_DIR:     terraform
+  AWS_REGION:     "us-east-1"
+  TF_VERSION:     "1.7.0"
+  PYTHON_VERSION: "3.12"
 
 permissions:
-  id-token:       write   # Requerido para OIDC con AWS
-  contents:       read
-  pull-requests:  write   # Para comentar el plan en PRs
+  id-token:      write
+  contents:      read
+  pull-requests: write
 
-# ── Job 1: Lint y Tests unitarios ─────────────────────────────
+# ── Job 1: Lint y Tests ───────────────────────────────────────
 jobs:
   test:
     name: "Lint + Tests"
@@ -54,10 +55,9 @@ jobs:
         run: pip install -r requirements-dev.txt
 
       - name: "Lint: flake8"
-        run: |
-          flake8 scripts/ glue_jobs/ lambda/ tests/
+        run: flake8 scripts/ glue_jobs/ lambda/ tests/
 
-      - name: "Tests unitarios"
+      - name: "Tests unitarios (sin AWS)"
         run: |
           pytest tests/ \
             --ignore=tests/test_deploy_data.py \
@@ -65,11 +65,10 @@ jobs:
             --cov=tests \
             --cov-report=term-missing
 
-      - name: "Tests con moto (simulación AWS)"
-        run: |
-          pytest tests/test_deploy_data.py -v
+      - name: "Tests con moto (simulación AWS en memoria)"
+        run: pytest tests/test_deploy_data.py -v
 
-  # ── Job 2: Validar Terraform ─────────────────────────────────
+  # ── Job 2: Validar sintaxis Terraform ────────────────────────
   terraform-validate:
     name: "Terraform Validate"
     runs-on: ubuntu-latest
@@ -84,22 +83,24 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - name: "terraform fmt (verificar formato)"
+      - name: "terraform fmt (verificar formato HCL)"
         run: terraform fmt -check -recursive
         working-directory: terraform
 
-      - name: "terraform validate"
+      - name: "terraform validate (verificar sintaxis)"
         run: |
           terraform init -backend=false
           terraform validate
         working-directory: terraform
 
-  # ── Job 3: Plan (solo en PRs) ────────────────────────────────
+  # ── Job 3: Plan (PRs — requiere AWS_ROLE_ARN configurado) ───
   terraform-plan:
     name: "Terraform Plan"
     runs-on: ubuntu-latest
     needs: [test, terraform-validate]
-    if: github.event_name == 'pull_request'
+    if: |
+      github.event_name == 'pull_request' &&
+      secrets.AWS_ROLE_ARN != ''
 
     steps:
       - name: Checkout código
@@ -125,7 +126,7 @@ jobs:
         run: |
           terraform plan \
             -var-file=environments/dev/terraform.tfvars \
-            -var="alert_email=${{ secrets.TF_VAR_alert_email }}" \
+            -var="alert_email=${{ secrets.ALERT_EMAIL }}" \
             -input=false \
             -no-color \
             -out=tfplan 2>&1 | tee plan_output.txt
@@ -138,7 +139,8 @@ jobs:
           script: |
             const fs = require('fs');
             const plan = fs.readFileSync('terraform/plan_output.txt', 'utf8');
-            const truncated = plan.length > 60000 ? plan.slice(0, 60000) + '\n\n... (truncado)' : plan;
+            const truncated = plan.length > 60000
+              ? plan.slice(0, 60000) + '\n\n... (truncado)' : plan;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -146,12 +148,15 @@ jobs:
               body: `## Terraform Plan\n\`\`\`\n${truncated}\n\`\`\``
             });
 
-  # ── Job 4: Apply (solo en merge a main) ─────────────────────
+  # ── Job 4: Apply (merge a main — requiere AWS_ROLE_ARN) ──────
   terraform-apply:
     name: "Terraform Apply"
     runs-on: ubuntu-latest
     needs: [test, terraform-validate]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: |
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      secrets.AWS_ROLE_ARN != ''
     environment: production
 
     steps:
@@ -173,7 +178,6 @@ jobs:
         run: |
           cd lambda
           zip -r ../terraform/lambda_ingestion.zip ingestion_handler.py
-          echo "Lambda empaquetada: $(du -sh ../terraform/lambda_ingestion.zip | cut -f1)"
 
       - name: terraform init
         run: terraform init -input=false
@@ -183,47 +187,18 @@ jobs:
         run: |
           terraform apply \
             -var-file=environments/dev/terraform.tfvars \
-            -var="alert_email=${{ secrets.TF_VAR_alert_email }}" \
+            -var="alert_email=${{ secrets.ALERT_EMAIL }}" \
             -input=false \
             -auto-approve
         working-directory: terraform
 
-      - name: Subir scripts de Glue a S3
-        run: |
-          BUCKET=$(terraform -chdir=terraform output -raw scripts_bucket 2>/dev/null || echo "")
-          if [ -n "$BUCKET" ]; then
-            aws s3 cp glue_jobs/etl_energia_transform.py   s3://$BUCKET/jobs/
-            aws s3 cp glue_jobs/redshift_pipeline.py       s3://$BUCKET/jobs/
-            aws s3 cp glue_jobs/catalog_crawler_trigger.py s3://$BUCKET/jobs/
-            echo "✅ Scripts Glue subidos a s3://$BUCKET/jobs/"
-          fi
-
-      - name: Subir datos de muestra
+      - name: Subir datos de muestra a S3
         run: |
           LANDING=$(terraform -chdir=terraform output -raw landing_bucket 2>/dev/null || echo "")
           if [ -n "$LANDING" ]; then
             PARTITION="year=2024/month=01/day=15/hour=00"
-            for DATASET in proveedores clientes transacciones; do
-              aws s3 cp data/sample/$DATASET.csv \
-                s3://$LANDING/raw/$DATASET/$PARTITION/$DATASET.csv
-              echo "  Subido: $DATASET.csv"
+            for DS in proveedores clientes transacciones; do
+              aws s3 cp data/sample/$DS.csv s3://$LANDING/raw/$DS/$PARTITION/$DS.csv
+              echo "  ✅ Subido: $DS.csv"
             done
           fi
-
-  # ── Job 5: Notificación final ─────────────────────────────────
-  notify:
-    name: "Notificación"
-    runs-on: ubuntu-latest
-    needs: terraform-apply
-    if: always() && github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Resumen del despliegue
-        run: |
-          echo "## ✅ Data Lake desplegado"                >> $GITHUB_STEP_SUMMARY
-          echo "| Elemento | Valor |"                      >> $GITHUB_STEP_SUMMARY
-          echo "|----------|-------|"                       >> $GITHUB_STEP_SUMMARY
-          echo "| Rama | main |"                           >> $GITHUB_STEP_SUMMARY
-          echo "| Commit | ${{ github.sha }} |"            >> $GITHUB_STEP_SUMMARY
-          echo "| Autor | ${{ github.actor }} |"           >> $GITHUB_STEP_SUMMARY
-          echo "| Fecha | $(date -u '+%Y-%m-%d %H:%M UTC') |" >> $GITHUB_STEP_SUMMARY
