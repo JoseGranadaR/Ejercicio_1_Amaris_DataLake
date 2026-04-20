@@ -77,7 +77,7 @@ Ejercicio_1_Amaris_DataLake/
 ### Paso 0 — Clonar y configurar AWS
 
 ```bash
-git clone https://github.com/su-usuario/Ejercicio_1_Amaris_DataLake
+git clone https://github.com/JoseGranadaR/Ejercicio_1_Amaris_DataLake
 cd Ejercicio_1_Amaris_DataLake
 
 # Configurar credenciales de AWS (solo la primera vez)
